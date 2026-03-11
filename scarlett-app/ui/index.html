@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scarlett Control</title>
+<script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#111214;--card:#1a1c20;--card2:#212428;--border:#2e3035;
+  --accent:#e8472a;--green:#22c97a;--green-glow:rgba(34,201,122,.15);
+  --yellow:#f0b429;--blue:#4a9eff;--text:#eef0f3;--text2:#8a8f99;
+  --text3:#454952;--track:#2a2d33;--r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Outfit',sans-serif;min-height:100vh;display:flex;flex-direction:column;user-select:none}
+
+/* HEADER */
+header{background:var(--card);border-bottom:1px solid var(--border);padding:0 28px;height:58px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.brand{display:flex;align-items:center;gap:14px}
+.brand-icon{width:36px;height:36px;background:var(--accent);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:#fff;box-shadow:0 4px 14px rgba(232,71,42,.35)}
+.brand-text{font-size:17px;font-weight:700;letter-spacing:-.3px}
+.brand-sub{font-size:11px;color:var(--text2);margin-top:1px}
+.device-pill{display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--border);border-radius:20px;padding:7px 16px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 7px var(--green);animation:breathe 2.5s infinite;flex-shrink:0}
+.dot.offline{background:var(--accent);box-shadow:0 0 7px var(--accent);animation:none}
+@keyframes breathe{0%,100%{opacity:1}50%{opacity:.35}}
+.dev-name{font-size:13px;font-weight:600}
+.dev-sub{font-size:11px;color:var(--text2)}
+
+/* NAV */
+nav{background:var(--card);border-bottom:1px solid var(--border);padding:0 28px;display:flex;gap:2px;overflow-x:auto;flex-shrink:0}
+.nav-btn{display:flex;align-items:center;gap:7px;background:none;border:none;color:var(--text2);padding:13px 16px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:500;cursor:pointer;border-bottom:2.5px solid transparent;transition:all .15s;white-space:nowrap}
+.nav-btn .icon{font-size:16px}
+.nav-btn:hover{color:var(--text);background:rgba(255,255,255,.03)}
+.nav-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* MAIN */
+main{flex:1;overflow-y:auto;padding:28px}
+.tab{display:none}.tab.active{display:block}
+.page-title{font-size:22px;font-weight:700;margin-bottom:4px;letter-spacing:-.4px}
+.page-desc{font-size:13px;color:var(--text2);margin-bottom:28px;line-height:1.6}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
+
+/* CARD */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:22px;transition:border-color .2s}
+.card:hover{border-color:#3a3d45}
+.card-title{font-size:15px;font-weight:700;letter-spacing:-.2px}
+.card-sub{font-size:11px;color:var(--text2);margin-top:3px}
+
+/* SLIDERS */
+.slider-block{margin-bottom:22px}
+.slider-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+.s-label{font-size:13px;font-weight:500}
+.s-help{font-size:11px;color:var(--text2);margin-top:2px}
+.s-val{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:500;background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;min-width:58px;text-align:center;color:var(--accent);flex-shrink:0;margin-left:12px}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;background:var(--track);border-radius:3px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid var(--accent);box-shadow:0 2px 8px rgba(232,71,42,.4);cursor:pointer;transition:transform .1s,box-shadow .1s}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15);box-shadow:0 2px 14px rgba(232,71,42,.6)}
+input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#fff;border:3px solid var(--accent);cursor:pointer}
+
+/* ── METERS (shared) ─────────────────────────────────── */
+.meter-block{margin-bottom:20px}
+.meter-section-label{font-size:11px;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.8px;font-weight:600;display:flex;align-items:center;justify-content:space-between}
+.meter-unavail-badge{font-size:9px;color:var(--text3);background:var(--card2);border:1px solid var(--border);border-radius:4px;padding:2px 7px;letter-spacing:.3px;font-weight:500;text-transform:none;white-space:nowrap}
+.meter-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.meter-ch-label{font-size:10px;color:var(--text2);width:12px;text-align:center;flex-shrink:0;font-family:'JetBrains Mono',monospace;font-weight:500}
+.meter-segs{display:flex;gap:2px;flex:1;height:10px;align-items:center}
+.seg{flex:1;height:10px;border-radius:2px;background:var(--track);transition:background .06s}
+.seg.lit-green{background:var(--green);box-shadow:0 0 4px rgba(34,201,122,.45)}
+.seg.lit-yellow{background:var(--yellow);box-shadow:0 0 4px rgba(240,180,41,.45)}
+.seg.lit-red{background:var(--accent);box-shadow:0 0 4px rgba(232,71,42,.6)}
+.meter-peak{width:8px;height:10px;border-radius:2px;flex-shrink:0;background:var(--track);transition:background .1s}
+.meter-peak.pk-green{background:var(--green)}
+.meter-peak.pk-yellow{background:var(--yellow)}
+.meter-peak.pk-red{background:var(--accent);box-shadow:0 0 6px rgba(232,71,42,.8)}
+
+/* ── OUTPUT METER WIDGET ─────────────────────────────── */
+.out-meter-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px 22px}
+.out-meter-card:hover{border-color:#3a3d45}
+.out-meter-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.out-meter-title{font-size:14px;font-weight:700}
+.out-meter-sub{font-size:11px;color:var(--text2);margin-top:2px}
+
+/* Bigger output meters — taller bars */
+.out-meter-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.out-meter-lbl{font-size:11px;color:var(--text2);width:70px;flex-shrink:0;font-weight:500}
+.out-meter-segs{display:flex;gap:2px;flex:1;height:14px}
+.out-seg{flex:1;height:14px;border-radius:3px;background:var(--track);transition:background .06s}
+.out-seg.lit-green{background:var(--green);box-shadow:0 0 5px rgba(34,201,122,.4)}
+.out-seg.lit-yellow{background:var(--yellow);box-shadow:0 0 5px rgba(240,180,41,.4)}
+.out-seg.lit-red{background:var(--accent);box-shadow:0 0 5px rgba(232,71,42,.6)}
+.out-meter-peak{width:10px;height:14px;border-radius:3px;flex-shrink:0;background:var(--track)}
+.out-meter-peak.pk-green{background:var(--green)}
+.out-meter-peak.pk-yellow{background:var(--yellow)}
+.out-meter-peak.pk-red{background:var(--accent);box-shadow:0 0 7px rgba(232,71,42,.8)}
+.out-db-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);width:40px;text-align:right;flex-shrink:0}
+
+/* TOGGLES */
+.toggle-group{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:13px 14px;background:var(--card2);border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s}
+.toggle-row:hover{border-color:#3a3d45}
+.toggle-row.on{border-color:var(--green);background:var(--green-glow)}
+.toggle-row.warn.on{border-color:var(--yellow);background:rgba(240,180,41,.08)}
+.toggle-row.hw-only{cursor:default;opacity:.7;border-style:dashed}
+.toggle-row.hw-only:hover{border-color:var(--border)}
+.toggle-row.hw-only.on{border-color:rgba(34,201,122,.4);background:rgba(34,201,122,.05)}
+.t-name{font-size:13px;font-weight:600}
+.t-desc{font-size:11px;color:var(--text2);margin-top:3px;line-height:1.45}
+.hw-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:600;color:var(--text3);background:#1e2025;border:1px solid var(--border);border-radius:4px;padding:2px 7px;margin-top:5px;letter-spacing:.3px}
+.switch{width:42px;height:24px;background:var(--track);border-radius:12px;position:relative;transition:background .2s;flex-shrink:0;margin-left:14px}
+.switch::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.4);transition:left .2s}
+.toggle-row.on .switch{background:var(--green)}
+.toggle-row.on .switch::after{left:21px}
+.toggle-row.warn.on .switch{background:var(--yellow)}
+.ch-badge{width:30px;height:30px;background:var(--accent);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0;box-shadow:0 2px 8px rgba(232,71,42,.3)}
+
+/* BUTTONS */
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px 22px;border-radius:8px;font-family:'Outfit',sans-serif;font-size:13px;font-weight:600;cursor:pointer;border:none;margin-top:18px;transition:background .15s,transform .1s,box-shadow .15s}
+.btn-primary{background:var(--accent);color:#fff;box-shadow:0 4px 14px rgba(232,71,42,.3)}
+.btn-primary:hover{background:#f55c40;box-shadow:0 4px 20px rgba(232,71,42,.5)}
+.btn-primary:active{transform:scale(.98)}
+.btn.loading{background:#555!important;box-shadow:none!important;pointer-events:none}
+.btn.success{background:var(--green)!important;box-shadow:0 4px 14px rgba(34,201,122,.3)!important}
+.btn.error{background:#b52200!important;box-shadow:none!important}
+
+/* MIX ROW */
+.mix-row{padding:14px 0;border-bottom:1px solid #1c1f24}
+.mix-row:last-child{border-bottom:none}
+.mix-row-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.mix-row-name{font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px}
+.mix-row-badge{font-size:10px;font-weight:600;color:var(--text3);background:var(--card2);border:1px solid var(--border);border-radius:4px;padding:1px 6px}
+.mix-row-controls{display:flex;align-items:center;gap:8px}
+.mix-row-vol{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:500;background:var(--card2);border:1px solid var(--border);border-radius:6px;padding:3px 9px;min-width:52px;text-align:center;color:var(--accent)}
+/* Inline meter strip sits between name and slider */
+.mix-meter-strip{display:flex;align-items:center;gap:4px;margin-bottom:7px}
+.mix-meter-segs{display:flex;gap:1px;flex:1;height:6px}
+.mix-seg{flex:1;height:6px;border-radius:1px;background:var(--track)}
+.mix-seg.lit-green{background:var(--green)}
+.mix-seg.lit-yellow{background:var(--yellow)}
+.mix-seg.lit-red{background:var(--accent)}
+.mix-seg-peak{width:6px;height:6px;border-radius:1px;flex-shrink:0;background:var(--track)}
+.mix-seg-peak.pk-green{background:var(--green)}
+.mix-seg-peak.pk-yellow{background:var(--yellow)}
+.mix-seg-peak.pk-red{background:var(--accent)}
+
+/* SETTINGS */
+.setting-item{display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid #1d2025}
+.setting-item:last-of-type{border-bottom:none}
+.s-name{font-size:13px;font-weight:500}
+.fancy-select{background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Outfit',sans-serif;font-size:13px;font-weight:500;padding:8px 14px;cursor:pointer;outline:none;transition:border-color .15s;min-width:145px}
+.fancy-select:hover,.fancy-select:focus{border-color:var(--accent)}
+.lat-box{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-top:16px;display:flex;align-items:center;justify-content:space-between}
+.lat-num{font-size:30px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.lat-unit{font-size:13px;color:var(--text2);margin-left:4px}
+.lat-good{color:var(--green)}.lat-ok{color:var(--yellow)}.lat-high{color:var(--accent)}
+.lat-verdict{font-size:12px;color:var(--text2)}
+.info{background:rgba(74,158,255,.07);border:1px solid rgba(74,158,255,.2);border-radius:8px;padding:12px 14px;font-size:12px;color:var(--blue);line-height:1.6;margin-bottom:18px}
+.divider{display:flex;align-items:center;gap:12px;margin:26px 0 22px}
+.div-line{flex:1;height:1px;background:var(--border)}
+.div-label{font-size:11px;color:var(--text3);font-weight:600;letter-spacing:1px;text-transform:uppercase}
+
+/* ROUTING */
+.rt-cell{width:30px;height:30px;border-radius:50%;border:2px solid var(--border);background:var(--card2);margin:auto;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.rt-cell:hover{border-color:#555}
+.rt-cell.on{border-color:var(--green);background:var(--green-glow);box-shadow:0 0 8px rgba(34,201,122,.3)}
+.rt-dot{width:11px;height:11px;border-radius:50%;background:var(--green)}
+
+/* TOAST */
+#toast{position:fixed;bottom:20px;right:20px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:13px 17px;font-size:13px;max-width:310px;display:flex;align-items:center;gap:10px;transform:translateY(70px);opacity:0;transition:transform .3s,opacity .3s;z-index:9999;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+#toast.show{transform:translateY(0);opacity:1}
+#toast.ok{border-color:var(--green)}
+#toast.err{border-color:var(--accent)}
+.toast-icon{font-size:18px;flex-shrink:0}
+
+/* FOOTER */
+footer{background:var(--card);border-top:1px solid var(--border);padding:9px 28px;display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--text3);flex-shrink:0}
+.ft-stats{display:flex;gap:20px}
+.ft-stats span{color:var(--text2)}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#2e3035;border-radius:4px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-icon">S</div>
+    <div>
+      <div class="brand-text">Scarlett Control</div>
+      <div class="brand-sub">Linux — Native Desktop App</div>
+    </div>
+  </div>
+  <div class="device-pill">
+    <div class="dot" id="dev-dot"></div>
+    <div>
+      <div class="dev-name" id="dev-name">Detecting device…</div>
+      <div class="dev-sub"  id="dev-sub">Please wait</div>
+    </div>
+  </div>
+</header>
+
+<nav>
+  <button class="nav-btn active" onclick="switchTab('mic',this)"><span class="icon">🎤</span> Microphones</button>
+  <button class="nav-btn" onclick="switchTab('mix',this)"><span class="icon">🎧</span> Headphones & Speakers</button>
+  <button class="nav-btn" onclick="switchTab('routing',this)"><span class="icon">🔀</span> Routing</button>
+  <button class="nav-btn" onclick="switchTab('settings',this)"><span class="icon">⚙️</span> Settings</button>
+</nav>
+
+<main>
+
+  <!-- ══ MICROPHONES ═══════════════════════════════════════════════════════ -->
+  <div class="tab active" id="tab-mic">
+    <div class="page-title">Microphone Inputs</div>
+    <div class="page-desc">Adjust how loud each input sounds going into the computer. The signal meters show the actual live level coming in right now.</div>
+    <div class="grid2" id="input-channels">
+      <div style="color:var(--text2);font-size:13px;padding:20px;display:flex;align-items:center;gap:10px;">
+        <div class="spinner"></div> Loading inputs…
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ HEADPHONES & SPEAKERS ════════════════════════════════════════════ -->
+  <div class="tab" id="tab-mix">
+    <div class="page-title">Headphones & Speakers</div>
+    <div class="page-desc">Control what <em>you</em> hear. The output meters show what is actually coming out of the device right now. This does not affect what gets recorded.</div>
+
+    <!-- Output meters — full width, at top -->
+    <div class="out-meter-card" style="margin-bottom:16px;" id="output-meter-card">
+      <div class="out-meter-header">
+        <div>
+          <div class="out-meter-title">📊 Output Signal Levels</div>
+          <div class="out-meter-sub">Live levels for what is currently playing out of the Scarlett</div>
+        </div>
+        <div class="meter-unavail-badge" id="out-meter-badge" style="display:none;">
+          output metering unavailable
+        </div>
+      </div>
+      <!-- Outputs 1 & 2 (speakers / monitors) -->
+      <div id="out-meters-main"></div>
+      <!-- Headphone outputs -->
+      <div id="out-meters-hp" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border);"></div>
+    </div>
+
+    <!-- Mix controls + direct monitor -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div>
+          <div class="card-title">🎚 Playback Mix</div>
+          <div class="card-sub">Volume of each app currently playing through your Scarlett</div>
+        </div>
+        <button onclick="loadSinkInputs()" style="background:var(--card2);border:1px solid var(--border);color:var(--text2);border-radius:7px;padding:6px 13px;font-size:12px;font-family:'Outfit',sans-serif;cursor:pointer;">🔄 Refresh</button>
+      </div>
+      <div id="sink-inputs-list">
+        <div style="color:var(--text2);font-size:13px;display:flex;align-items:center;gap:8px;"><div class="spinner"></div> Loading streams…</div>
+      </div>
+    </div>
+
+    <div class="divider"><div class="div-line"></div><div class="div-label">Hear Yourself (Direct Monitor)</div><div class="div-line"></div></div>
+    <div class="card" style="max-width:560px;">
+      <div class="card-title" style="margin-bottom:5px;">Do you want to hear yourself while recording?</div>
+      <div class="card-sub" style="margin-bottom:18px;font-size:12px;line-height:1.6;">When on, you'll hear your mic or guitar instantly — no delay. Turn off if you prefer to monitor through your recording software.</div>
+      <div class="toggle-group" id="monitor-toggles">
+        <div style="color:var(--text2);font-size:12px;display:flex;align-items:center;gap:8px;"><div class="spinner"></div> Checking device…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ROUTING ═══════════════════════════════════════════════════════════ -->
+  <div class="tab" id="tab-routing">
+    <div class="page-title">Sound Routing</div>
+    <div class="page-desc">Choose where each sound source is sent. Click a circle to connect or disconnect — green means connected.</div>
+    <div class="card"><div id="routing-matrix"></div></div>
+  </div>
+
+  <!-- ══ SETTINGS ══════════════════════════════════════════════════════════ -->
+  <div class="tab" id="tab-settings">
+    <div class="page-title">Device Settings</div>
+    <div class="page-desc">The defaults work well for most people. Only change these if you have a specific reason.</div>
+
+    <!-- Diagnostics panel -->
+    <div class="card" style="margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div>
+          <div class="card-title">🔬 Meter Diagnostics</div>
+          <div class="card-sub">Which audio streams the meters are reading — check this if meters aren't responding</div>
+        </div>
+        <button class="btn btn-primary" style="width:auto;margin:0;padding:8px 16px;font-size:12px;" onclick="runDiagnostics()">🔄 Refresh</button>
+      </div>
+      <div id="diag-panel" style="font-size:12px;color:var(--text2);display:flex;align-items:center;gap:8px;">
+        <div class="spinner"></div> Loading…
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <div class="card-title" style="margin-bottom:4px;">🎵 Audio Quality (Sample Rate)</div>
+        <div class="card-sub" style="margin-bottom:16px;">Higher = better quality, but uses more computer power</div>
+        <div class="info"><strong>Not sure?</strong> Use <strong>48,000 Hz</strong> for video/streaming/podcasting. Use <strong>44,100 Hz</strong> for music releases.</div>
+        <div class="setting-item">
+          <div><div class="s-name">Sample Rate</div></div>
+          <select class="fancy-select" id="sel-sr" onchange="updateLatency()">
+            <option value="44100">44,100 Hz — Music / CD</option>
+            <option value="48000" selected>48,000 Hz — Video / Streaming ✓</option>
+            <option value="88200">88,200 Hz — High quality</option>
+            <option value="96000">96,000 Hz — Studio</option>
+            <option value="192000">192,000 Hz — Maximum</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="btn-sr" onclick="applySampleRate()">💾 Save Sample Rate</button>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:4px;">⚡ Latency (Buffer Size)</div>
+        <div class="card-sub" style="margin-bottom:16px;">Controls the delay between playing/singing and hearing yourself</div>
+        <div class="info"><strong>Hearing a delay?</strong> Lower the buffer. &nbsp;<strong>Getting crackling?</strong> Raise it. Start at 256.</div>
+        <div class="setting-item">
+          <div><div class="s-name">Buffer Size</div></div>
+          <select class="fancy-select" id="sel-buf" onchange="updateLatency()">
+            <option value="64">64 — Very fast (may crackle)</option>
+            <option value="128">128 — Fast</option>
+            <option value="256" selected>256 — Balanced ✓</option>
+            <option value="512">512 — Very stable</option>
+            <option value="1024">1024 — Maximum stability</option>
+          </select>
+        </div>
+        <div class="lat-box">
+          <div>
+            <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">Estimated delay</div>
+            <span class="lat-num lat-good" id="lat-ms">5.3</span><span class="lat-unit">ms</span>
+          </div>
+          <div class="lat-verdict" id="lat-verdict">⚡ Great for live recording</div>
+        </div>
+        <button class="btn btn-primary" id="btn-buf" onclick="applyBuffer()">💾 Save Buffer Size</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <div class="ft-stats">
+    <div>Sample rate: <span id="ft-sr">—</span></div>
+    <div>Buffer: <span id="ft-buf">—</span></div>
+    <div>Latency: <span id="ft-lat">—</span></div>
+  </div>
+  <div class="ft-stats">
+    <div>Meters: <span id="ft-meter-method">—</span></div>
+    <div>In node: <span id="ft-in-node">—</span></div>
+    <div>Out node: <span id="ft-out-node">—</span></div>
+  </div>
+</footer>
+
+<div id="toast"><span class="toast-icon" id="t-icon">✅</span><span id="t-msg"></span></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+//  QWebChannel bridge
+// ══════════════════════════════════════════════════════════════════════════════
+let backend = null;
+new QWebChannel(qt.webChannelTransport, function(ch) {
+  backend = ch.objects.backend;
+  backend.meterUpdate.connect(onMeterUpdate);
+  init();
+});
+
+function call(method, ...args) {
+  return new Promise(resolve => {
+    if (!backend) { resolve({ success: false, message: 'Not connected' }); return; }
+    backend[method](...args, result => {
+      try { resolve(JSON.parse(result)); }
+      catch { resolve({ success: false, message: 'Bad response' }); }
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  State
+// ══════════════════════════════════════════════════════════════════════════════
+const inputs = [
+  { label: 'Input 1', gain: 60, phantom: false, inst: false, air: false, pad: false, caps: null },
+  { label: 'Input 2', gain: 55, phantom: false, inst: false, air: false, pad: false, caps: null },
+];
+const routing = {
+  'Headphones': { 'Mic 1': true,  'Mic 2': true,  'Computer': true,  'Playback': false },
+  'Speakers L':  { 'Mic 1': true,  'Mic 2': false, 'Computer': true,  'Playback': false },
+  'Speakers R':  { 'Mic 1': false, 'Mic 2': true,  'Computer': true,  'Playback': false },
+};
+
+// Peak hold state: key → { level, timer }
+const peaks = {};
+const N_IN_SEGS  = 24;
+const N_OUT_SEGS = 30;
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Meter signal handler — called by Python every ~80ms with real levels
+// ══════════════════════════════════════════════════════════════════════════════
+
+function onMeterUpdate(jsonStr) {
+  let d;
+  try { d = JSON.parse(jsonStr); } catch { return; }
+
+  // ── Input meters ─────────────────────────────────────────────────────────
+  if (d.inputAvailable) {
+    d.inputs.forEach((chLevels, chIdx) => {
+      chLevels.forEach((level, side) => {
+        updateSegBar(`msegs-${chIdx}-${side}`, `mpeak-${chIdx}-${side}`,
+                     level, N_IN_SEGS, 'seg', `in-${chIdx}-${side}`);
+      });
+    });
+  }
+
+  // ── Output meters ────────────────────────────────────────────────────────
+  if (d.outputAvailable) {
+    // Main outputs 1+2 (speakers / monitors)
+    updateSegBar('out-segs-L', 'out-peak-L', d.outputs[0], N_OUT_SEGS, 'out-seg', 'out-L');
+    updateSegBar('out-segs-R', 'out-peak-R', d.outputs[1], N_OUT_SEGS, 'out-seg', 'out-R');
+    // Headphone outputs mirror the same bus on a 2i2 — use same levels
+    updateSegBar('hp-segs-L',  'hp-peak-L',  d.outputs[0], N_OUT_SEGS, 'out-seg', 'hp-L');
+    updateSegBar('hp-segs-R',  'hp-peak-R',  d.outputs[1], N_OUT_SEGS, 'out-seg', 'hp-R');
+    // Show dB values
+    setDbLabel('out-db-L', d.outputs[0]);
+    setDbLabel('out-db-R', d.outputs[1]);
+    setDbLabel('hp-db-L',  d.outputs[0]);
+    setDbLabel('hp-db-R',  d.outputs[1]);
+  }
+  // ── Mix row inline meters ─────────────────────────────────────────────────
+  if (d.mixLevels) updateMixRowMeters(d.mixLevels);
+}
+(level) {
+  // level is 0–100 mapped from -60..0 dBFS
+  if (level <= 0) return '-∞';
+  const db = (level / 100) * 60 - 60;
+  return (db >= 0 ? '+' : '') + db.toFixed(1);
+}
+
+function setDbLabel(id, level) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = levelToDb(level) + ' dB';
+  el.style.color = level > 90 ? 'var(--accent)' : level > 70 ? 'var(--yellow)' : 'var(--text3)';
+}
+
+function updateSegBar(segsId, peakId, level, nSegs, segClass, peakKey) {
+  const bar  = document.getElementById(segsId);
+  const peak = document.getElementById(peakId);
+  if (!bar) return;
+
+  const segs     = bar.children;
+  const litCount = Math.round((level / 100) * nSegs);
+
+  for (let i = 0; i < segs.length; i++) {
+    const pct = ((i + 1) / nSegs) * 100;
+    segs[i].className = segClass + (i < litCount
+      ? ' ' + (pct > 90 ? 'lit-red' : pct > 70 ? 'lit-yellow' : 'lit-green')
+      : '');
+  }
+
+  // Peak hold — 1.5s
+  if (!peaks[peakKey] || level >= peaks[peakKey].level) {
+    clearTimeout(peaks[peakKey]?.timer);
+    peaks[peakKey] = {
+      level,
+      timer: setTimeout(() => {
+        peaks[peakKey] = { level: 0 };
+        if (peak) peak.className = peak.className.split(' ')[0];
+      }, 1500),
+    };
+  }
+  if (peak) {
+    const base = peak.className.split(' ')[0];
+    const pl   = peaks[peakKey]?.level || 0;
+    peak.className = base + (pl > 90 ? ' pk-red' : pl > 70 ? ' pk-yellow' : pl > 0 ? ' pk-green' : '');
+  }
+}
+
+// ── Build meter HTML helpers ──────────────────────────────────────────────────
+
+function makeInputMeterBar(chIdx, side) {
+  let segs = '';
+  for (let i = 0; i < N_IN_SEGS; i++) segs += `<div class="seg"></div>`;
+  return `<div class="meter-row">
+    <div class="meter-ch-label">${side === 0 ? 'L' : 'R'}</div>
+    <div class="meter-segs" id="msegs-${chIdx}-${side}">${segs}</div>
+    <div class="meter-peak" id="mpeak-${chIdx}-${side}"></div>
+  </div>`;
+}
+
+function makeOutputMeterRow(label, segsId, peakId, dbId) {
+  let segs = '';
+  for (let i = 0; i < N_OUT_SEGS; i++) segs += `<div class="out-seg"></div>`;
+  return `<div class="out-meter-row">
+    <div class="out-meter-lbl">${label}</div>
+    <div class="out-meter-segs" id="${segsId}">${segs}</div>
+    <div class="out-meter-peak" id="${peakId}"></div>
+    <div class="out-db-label" id="${dbId}">-∞ dB</div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Render output meters section
+// ══════════════════════════════════════════════════════════════════════════════
+
+function renderOutputMeters(outputAvailable) {
+  const badge = document.getElementById('out-meter-badge');
+
+  if (!outputAvailable) {
+    badge.style.display = 'flex';
+    document.getElementById('out-meters-main').innerHTML =
+      `<div style="font-size:12px;color:var(--text3);padding:8px 0;">
+        Output metering unavailable — no Scarlett sink monitor found via PipeWire.
+       </div>`;
+    document.getElementById('out-meters-hp').innerHTML = '';
+    return;
+  }
+
+  badge.style.display = 'none';
+
+  document.getElementById('out-meters-main').innerHTML =
+    `<div style="font-size:11px;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.8px;font-weight:600;">Monitor Outputs 1 / 2 — Speakers</div>` +
+    makeOutputMeterRow('Output 1 (L)', 'out-segs-L', 'out-peak-L', 'out-db-L') +
+    makeOutputMeterRow('Output 2 (R)', 'out-segs-R', 'out-peak-R', 'out-db-R');
+
+  document.getElementById('out-meters-hp').innerHTML =
+    `<div style="font-size:11px;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:.8px;font-weight:600;">Headphone Outputs</div>` +
+    makeOutputMeterRow('Phones L', 'hp-segs-L', 'hp-peak-L', 'hp-db-L') +
+    makeOutputMeterRow('Phones R', 'hp-segs-R', 'hp-peak-R', 'hp-db-R');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Toast
+// ══════════════════════════════════════════════════════════════════════════════
+let toastTimer;
+function toast(msg, isOk = true) {
+  const el = document.getElementById('toast');
+  document.getElementById('t-msg').textContent = msg;
+  document.getElementById('t-icon').textContent = isOk ? '✅' : '❌';
+  el.className = 'show ' + (isOk ? 'ok' : 'err');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3200);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Tab switching
+// ══════════════════════════════════════════════════════════════════════════════
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Device info
+// ══════════════════════════════════════════════════════════════════════════════
+async function loadDeviceInfo() {
+  const res = await call('getDeviceInfo');
+  if (res.connected) {
+    document.getElementById('dev-name').textContent = res.name;
+    document.getElementById('dev-sub').textContent  = 'Connected · ' + res.device;
+    document.getElementById('ft-sr').textContent    = Number(res.sampleRate).toLocaleString() + ' Hz';
+    document.getElementById('ft-buf').textContent   = res.bufferSize + ' frames';
+    const lat = ((+res.bufferSize / +res.sampleRate) * 1000 * 2).toFixed(1);
+    document.getElementById('ft-lat').textContent   = lat + ' ms';
+  } else {
+    document.getElementById('dev-name').textContent = 'Device not found';
+    document.getElementById('dev-sub').textContent  = 'Check USB connection';
+    document.getElementById('dev-dot').classList.add('offline');
+  }
+  // Always show meter diagnostics regardless of connection
+  document.getElementById('ft-meter-method').textContent = res.meterMethod || '—';
+  document.getElementById('ft-in-node').textContent      = (res.pwCaptureNode  || '—').replace('alsa_input.','…');
+  document.getElementById('ft-out-node').textContent     = (res.pwSinkNode || '—').replace('alsa_output.','…');
+  return res;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Input channels
+// ══════════════════════════════════════════════════════════════════════════════
+async function loadInputChannels(meterAvail) {
+  const results = await Promise.all(inputs.map((_, i) => call('getChannelCapabilities', i + 1)));
+  results.forEach((res, i) => {
+    if (!res.success) return;
+    inputs[i].caps = res.caps;
+    if (res.caps.phantom?.value !== null) inputs[i].phantom = !!res.caps.phantom.value;
+    if (res.caps.inst?.value    !== null) inputs[i].inst    = !!res.caps.inst.value;
+    if (res.caps.air?.value     !== null) inputs[i].air     = !!res.caps.air.value;
+    if (res.caps.pad?.value     !== null) inputs[i].pad     = !!res.caps.pad.value;
+  });
+  renderInputChannels(meterAvail);
+}
+
+function renderInputChannels(meterAvail) {
+  document.getElementById('input-channels').innerHTML =
+    inputs.map((ch, i) => channelCard(ch, i, meterAvail)).join('');
+}
+
+function channelCard(ch, i, meterAvail) {
+  const caps = ch.caps || {};
+
+  function togHTML(feat, icon, name, desc, warn='') {
+    const cap = caps[feat];
+    if (!cap?.exists) return '';
+    const isOn = ch[feat] ? 'on' : '';
+    const w    = (warn && ch[feat]) ? warn : '';
+    if (!cap.writable) return `
+      <div class="toggle-row hw-only ${isOn} ${w}">
+        <div><div class="t-name">${icon} ${name}</div><div class="t-desc">${desc}</div>
+        <div class="hw-badge">🎛 Use the button on your device</div></div>
+        <div class="switch"></div></div>`;
+    const fn = feat==='phantom'?`togglePhantom(${i})`:feat==='inst'?`toggleInst(${i})`:feat==='air'?`toggleAir(${i})`:`togglePad(${i})`;
+    return `<div class="toggle-row ${isOn} ${w}" id="t-${feat}-${i}" onclick="${fn}">
+      <div><div class="t-name">${icon} ${name}</div><div class="t-desc">${desc}</div></div>
+      <div class="switch"></div></div>`;
+  }
+
+  const unavailNote = !meterAvail
+    ? `<span class="meter-unavail-badge">no input source found via PipeWire</span>` : '';
+
+  const ph = togHTML('phantom','⚡','48V Phantom Power','Turn on for <strong>condenser microphones</strong>. Leave off for dynamic mics, guitars, and instruments.','warn');
+  const ins = togHTML('inst','🎸','Instrument / Guitar Mode','Turn on when plugging a <strong>guitar or bass</strong> directly in. Leave off for microphones.');
+  const air = togHTML('air','✨','Air Mode','Adds brightness and presence — makes vocals and acoustic instruments sound more open and airy.');
+  const pad = togHTML('pad','🔉','Pad (−10 dB)','Reduces the input signal by 10 dB — use if your mic or instrument is too loud and distorting.');
+  const hasToggles = [ph,ins,air,pad].some(h=>h.trim());
+
+  return `<div class="card">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;">
+      <div class="ch-badge">${i+1}</div>
+      <div><div class="card-title">${ch.label}</div><div class="card-sub">Microphone, guitar, or line input</div></div>
+    </div>
+    <div class="meter-block">
+      <div class="meter-section-label">Signal Level ${unavailNote}</div>
+      ${makeInputMeterBar(i,0)}${makeInputMeterBar(i,1)}
+    </div>
+    <div class="slider-block">
+      <div class="slider-top">
+        <div><div class="s-label">Input Volume (Gain)</div><div class="s-help">How loud this input sounds in the recording</div></div>
+        <div class="s-val" id="gv${i}">${ch.gain}%</div>
+      </div>
+      <input type="range" min="0" max="100" value="${ch.gain}"
+        oninput="previewGain(${i},this.value)" onchange="saveGain(${i},this.value)">
+    </div>
+    ${hasToggles
+      ? `<div class="toggle-group">${ph}${ins}${air}${pad}</div>`
+      : `<div style="font-size:12px;color:var(--text2);padding:10px;background:var(--card2);border-radius:8px;border:1px solid var(--border);">
+           ℹ️ No additional controls found for this input on your kernel driver.
+           <span style="color:var(--text3);">Try upgrading to kernel 6.1+ for more controls.</span>
+         </div>`}
+  </div>`;
+}
+
+function previewGain(i,v){inputs[i].gain=+v;document.getElementById(`gv${i}`).textContent=v+'%';}
+async function saveGain(i,v){const res=await call('setInputGain',i+1,+v);toast(res.message,res.success);}
+
+function applyToggle(el,s,warn){if(!el)return;el.classList.toggle('on',s);if(warn)el.classList.toggle('warn',s);}
+async function togglePhantom(i){
+  inputs[i].phantom=!inputs[i].phantom;applyToggle(document.getElementById(`t-phantom-${i}`),inputs[i].phantom,true);
+  const res=await call('setPhantomPower',i+1,inputs[i].phantom);toast(res.message,res.success);
+  if(!res.success){inputs[i].phantom=!inputs[i].phantom;applyToggle(document.getElementById(`t-phantom-${i}`),inputs[i].phantom,true);}
+}
+async function toggleInst(i){
+  inputs[i].inst=!inputs[i].inst;applyToggle(document.getElementById(`t-inst-${i}`),inputs[i].inst,false);
+  const res=await call('setInstrumentMode',i+1,inputs[i].inst);toast(res.message,res.success);
+  if(!res.success){inputs[i].inst=!inputs[i].inst;applyToggle(document.getElementById(`t-inst-${i}`),inputs[i].inst,false);}
+}
+async function toggleAir(i){
+  inputs[i].air=!inputs[i].air;applyToggle(document.getElementById(`t-air-${i}`),inputs[i].air,false);
+  const res=await call('setAirMode',i+1,inputs[i].air);toast(res.message,res.success);
+  if(!res.success){inputs[i].air=!inputs[i].air;applyToggle(document.getElementById(`t-air-${i}`),inputs[i].air,false);}
+}
+async function togglePad(i){
+  inputs[i].pad=!inputs[i].pad;applyToggle(document.getElementById(`t-pad-${i}`),inputs[i].pad,false);
+  const res=await call('setPad',i+1,inputs[i].pad);toast(res.message,res.success);
+  if(!res.success){inputs[i].pad=!inputs[i].pad;applyToggle(document.getElementById(`t-pad-${i}`),inputs[i].pad,false);}
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Mix — dynamic sink-input faders
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Live list of PipeWire sink-inputs as returned by getSinkInputs()
+// Each: { index, name, volumePct, meterKey, muted }
+let sinkInputs = [];
+const MIX_SEGS = 20;
+
+async function loadSinkInputs() {
+  const list = document.getElementById('sink-inputs-list');
+  list.innerHTML = '<div style="color:var(--text2);font-size:13px;display:flex;align-items:center;gap:8px;"><div class="spinner"></div> Loading streams…</div>';
+
+  const res = await call('getSinkInputs');
+
+  if (!res.success || !res.inputs || res.inputs.length === 0) {
+    list.innerHTML = `
+      <div style="font-size:12px;color:var(--text2);padding:12px;background:var(--card2);border-radius:8px;border:1px solid var(--border);line-height:1.7;">
+        ℹ️ No active playback streams found on the Scarlett.<br>
+        <span style="color:var(--text3);">Start playing audio through your Scarlett (music, video, DAW) and click Refresh.</span>
+      </div>`;
+    sinkInputs = [];
+    return;
+  }
+
+  sinkInputs = res.inputs.map(s => ({ ...s, muted: false }));
+  renderSinkInputs();
+}
+
+function renderSinkInputs() {
+  if (!sinkInputs.length) return;
+  document.getElementById('sink-inputs-list').innerHTML =
+    sinkInputs.map((s, i) => mixRow(s, i)).join('');
+}
+
+function mixRow(s, i) {
+  // Build meter segments
+  let segs = '';
+  for (let k = 0; k < MIX_SEGS; k++) segs += `<div class="mix-seg"></div>`;
+
+  return `<div class="mix-row" id="mix-row-${i}">
+    <div class="mix-row-top">
+      <div class="mix-row-name">
+        ${s.name}
+        <span class="mix-row-badge">PA #${s.index}</span>
+      </div>
+      <div class="mix-row-controls">
+        <div class="mix-row-vol" id="mix-vol-${i}">${s.volumePct}%</div>
+        <div class="mute-btn ${s.muted?'muted':''}" id="mix-mute-${i}"
+             onclick="toggleSinkMute(${i})" title="Mute" style="width:28px;height:28px;background:var(--card2);border:1px solid var(--border);border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;transition:all .15s;opacity:.35;">🔇</div>
+      </div>
+    </div>
+    <!-- inline meter strip -->
+    <div class="mix-meter-strip">
+      <div class="mix-meter-segs" id="mix-segs-${i}">${segs}</div>
+      <div class="mix-seg-peak" id="mix-peak-${i}"></div>
+    </div>
+    <!-- volume slider -->
+    <input type="range" min="0" max="100" value="${s.volumePct}"
+      style="opacity:${s.muted?.35:1}" id="mix-slider-${i}"
+      oninput="previewSinkVol(${i},this.value)"
+      onchange="saveSinkVol(${i},this.value)">
+  </div>`;
+}
+
+function previewSinkVol(i, v) {
+  sinkInputs[i].volumePct = +v;
+  document.getElementById(`mix-vol-${i}`).textContent = v + '%';
+}
+
+async function saveSinkVol(i, v) {
+  const s = sinkInputs[i];
+  const res = await call('setSinkInputVolume', s.index, +v);
+  toast(res.message, res.success);
+  if (!res.success) {
+    // Revert slider
+    const sl = document.getElementById(`mix-slider-${i}`);
+    if (sl) sl.value = s.volumePct;
+    document.getElementById(`mix-vol-${i}`).textContent = s.volumePct + '%';
+  }
+}
+
+async function toggleSinkMute(i) {
+  sinkInputs[i].muted = !sinkInputs[i].muted;
+  const m = sinkInputs[i].muted;
+  const muteBtn = document.getElementById(`mix-mute-${i}`);
+  const slider  = document.getElementById(`mix-slider-${i}`);
+  if (muteBtn) { muteBtn.classList.toggle('muted', m); muteBtn.style.opacity = m ? '1' : '.35'; }
+  if (slider)  slider.style.opacity = m ? '.35' : '1';
+  const res = await call('muteSinkInput', sinkInputs[i].index);
+  toast(res.message, res.success);
+}
+
+// Update mix row meters from meterUpdate signal
+// meterKey: "input-0", "input-1", or "playback"
+function updateMixRowMeters(mixLevels) {
+  sinkInputs.forEach((s, i) => {
+    const level = mixLevels[s.meterKey] ?? 0;
+    const bar   = document.getElementById(`mix-segs-${i}`);
+    const peak  = document.getElementById(`mix-peak-${i}`);
+    if (!bar) return;
+    const segs = bar.children;
+    const lit  = Math.round((level / 100) * MIX_SEGS);
+    for (let k = 0; k < segs.length; k++) {
+      const pct = ((k+1)/MIX_SEGS)*100;
+      segs[k].className = 'mix-seg' + (k < lit ? ' ' + (pct>90?'lit-red':pct>70?'lit-yellow':'lit-green') : '');
+    }
+    const key = `mix-${i}`;
+    if (!peaks[key] || level >= peaks[key].level) {
+      clearTimeout(peaks[key]?.timer);
+      peaks[key] = { level, timer: setTimeout(() => {
+        peaks[key] = { level:0 };
+        if (peak) peak.className = 'mix-seg-peak';
+      }, 1500) };
+    }
+    if (peak) {
+      const pl = peaks[key]?.level || 0;
+      peak.className = 'mix-seg-peak' + (pl>90?' pk-red':pl>70?' pk-yellow':pl>0?' pk-green':'');
+    }
+  });
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Direct monitor
+// ══════════════════════════════════════════════════════════════════════════════
+async function loadMonitorControls(){
+  const res=await call('getMonitorCapabilities');
+  const c=document.getElementById('monitor-toggles');
+  if(!res.exists){
+    c.innerHTML=`<div style="font-size:12px;color:var(--text2);padding:10px;background:var(--card2);border-radius:8px;border:1px solid var(--border);">
+      ℹ️ Direct monitor control not available via software on this device.<br>
+      <span style="color:var(--text3);">Use the MON button on your Scarlett hardware.</span></div>`;return;
+  }
+  const modes=[
+    {key:'off',   label:'Off',         desc:'Hear yourself through your recording software (may have a small delay)'},
+    {key:'mono',  label:'On — Mono',   desc:'Hear yourself in both ears equally — great for a single microphone'},
+    {key:'stereo',label:'On — Stereo', desc:'Input 1 in left ear, Input 2 in right — great for two microphones'},
+  ];
+  const v=(res.value||'').toLowerCase();
+  const active=v.includes('stereo')?'stereo':v.includes('mono')||v==='on'?'mono':'off';
+  if(!res.writable){
+    c.innerHTML=modes.map(m=>`<div class="toggle-row hw-only ${active===m.key?'on':''}">
+      <div><div class="t-name">${m.label}</div><div class="t-desc">${m.desc}</div>
+      <div class="hw-badge">🎛 Use the MON button on your device</div></div>
+      <div class="switch"></div></div>`).join('');return;
+  }
+  c.innerHTML=modes.map(m=>`
+    <div class="toggle-row ${active===m.key?'on':''}" id="mon-${m.key}" onclick="setDirectMonitor('${m.key}')">
+      <div><div class="t-name">${m.label}</div><div class="t-desc">${m.desc}</div></div>
+      <div class="switch"></div></div>`).join('');
+}
+async function setDirectMonitor(mode){
+  document.querySelectorAll('[id^="mon-"]').forEach(e=>e.classList.remove('on'));
+  document.getElementById('mon-'+mode)?.classList.add('on');
+  const res=await call('setDirectMonitor',mode);
+  toast(res.message,res.success);
+  if(!res.success)loadMonitorControls();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Routing
+// ══════════════════════════════════════════════════════════════════════════════
+function renderRouting(){
+  const outs=Object.keys(routing),srcs=Object.keys(routing[outs[0]]);
+  let html=`<p style="font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.6;">
+    Each <strong style="color:var(--text)">row</strong> is an output. Each <strong style="color:var(--text)">column</strong> is a source.
+    Click a circle to connect or disconnect — <span style="color:var(--green)">green = connected</span>.
+  </p><div style="overflow-x:auto;"><table style="border-collapse:collapse;width:100%;">
+  <thead><tr><th style="padding:10px 14px;text-align:left;font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--border);">Output</th>`;
+  srcs.forEach(s=>{html+=`<th style="padding:10px 10px;font-size:11px;color:var(--text2);font-weight:600;text-transform:uppercase;letter-spacing:.8px;text-align:center;border-bottom:1px solid var(--border);">${s}</th>`;});
+  html+=`</tr></thead><tbody>`;
+  outs.forEach(o=>{
+    html+=`<tr><td style="padding:12px 14px;font-size:13px;font-weight:500;border-bottom:1px solid #1a1c21;white-space:nowrap;">${o}</td>`;
+    srcs.forEach(s=>{
+      const on=routing[o][s];
+      html+=`<td style="text-align:center;border-bottom:1px solid #1a1c21;padding:8px;">
+        <div class="rt-cell ${on?'on':''}" onclick="toggleRoute('${o}','${s}')" title="${on?'Disconnect':'Connect'}">
+        ${on?'<div class="rt-dot"></div>':''}</div></td>`;
+    });
+    html+=`</tr>`;
+  });
+  html+=`</tbody></table></div>`;
+  document.getElementById('routing-matrix').innerHTML=html;
+}
+function toggleRoute(o,s){routing[o][s]=!routing[o][s];renderRouting();toast(`${o} ← ${s} ${routing[o][s]?'connected':'disconnected'}`,true);}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Settings
+// ══════════════════════════════════════════════════════════════════════════════
+function updateLatency(){
+  const sr=+document.getElementById('sel-sr').value,buf=+document.getElementById('sel-buf').value;
+  const lat=((buf/sr)*1000*2).toFixed(1);
+  const el=document.getElementById('lat-ms');el.textContent=lat;
+  el.className='lat-num '+(lat<6?'lat-good':lat<15?'lat-ok':'lat-high');
+  document.getElementById('lat-verdict').textContent=
+    lat<6?'⚡ Excellent — no noticeable delay':lat<12?'✅ Good for most recording':lat<20?'⚠️ OK — try lowering if you hear a delay':'🐢 High — use for mixing/playback only';
+}
+function setBtnState(id,s,lbl){
+  const b=document.getElementById(id);if(!b)return;
+  b.className='btn btn-primary '+s;
+  const L={loading:'⏳ Applying…',success:'✅ Saved!',error:'❌ Failed — device connected?'};
+  if(L[s])b.textContent=L[s];
+  if(!s)setTimeout(()=>{b.className='btn btn-primary';b.innerHTML=lbl;},0);
+}
+async function applySampleRate(){
+  const rate=+document.getElementById('sel-sr').value;setBtnState('btn-sr','loading');
+  const res=await call('setSampleRate',rate);
+  setBtnState('btn-sr',res.success?'success':'error','');toast(res.message,res.success);
+  setTimeout(()=>setBtnState('btn-sr','','💾 Save Sample Rate'),2200);
+  if(res.success)document.getElementById('ft-sr').textContent=rate.toLocaleString()+' Hz';
+}
+async function applyBuffer(){
+  const size=+document.getElementById('sel-buf').value;setBtnState('btn-buf','loading');
+  const res=await call('setBufferSize',size);
+  setBtnState('btn-buf',res.success?'success':'error','');toast(res.message,res.success);
+  setTimeout(()=>setBtnState('btn-buf','','💾 Save Buffer Size'),2200);
+  if(res.success){
+    document.getElementById('ft-buf').textContent=size+' frames';
+    const sr=+document.getElementById('sel-sr').value;
+    document.getElementById('ft-lat').textContent=((size/sr)*1000*2).toFixed(1)+' ms';
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Diagnostics
+// ══════════════════════════════════════════════════════════════════════════════
+async function runDiagnostics() {
+  const panel = document.getElementById('diag-panel');
+  panel.innerHTML = '<div class="spinner"></div> Running…';
+
+  const d = await call('getDiagnostics');
+
+  // Status row helper
+  const row = (label, value, ok) =>
+    `<div style="display:flex;gap:10px;align-items:baseline;padding:5px 0;border-bottom:1px solid #1d2025;">
+       <div style="width:160px;color:var(--text2);flex-shrink:0;">${label}</div>
+       <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:${ok===true?'var(--green)':ok===false?'var(--accent)':'var(--text)'};word-break:break-all;">${value}</div>
+     </div>`;
+
+  const shortName = n => n && n !== 'none' ? n.replace(/alsa_(input|output)\./,'…').replace(/usb-[^-]+-/,'usb-…-') : '—';
+
+  let html = `
+    <div style="width:100%;">
+      ${row('parecord', d.parecordAvailable ? '✅ available — ' + d.parecordVersion : '❌ not found — install pulseaudio-utils', d.parecordAvailable)}
+      ${row('ALSA device', d.alsaDevice + ' — ' + d.alsaDeviceName, d.alsaDeviceName !== 'Scarlett (not detected)')}
+      ${row('Input source', shortName(d.selectedInput), d.selectedInput !== 'none')}
+      ${row('Input reader', d.inputReaderAlive ? '✅ running' : d.selectedInput === 'none' ? '⚠️ no source found' : '❌ process died', d.inputReaderAlive)}
+      ${row('Output monitor', shortName(d.selectedOutput), d.selectedOutput !== 'none')}
+      ${row('Output reader', d.outputReaderAlive ? '✅ running' : d.selectedOutput === 'none' ? '⚠️ no monitor found' : '❌ process died', d.outputReaderAlive)}
+
+      <div style="margin-top:14px;margin-bottom:8px;font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;font-weight:600;">
+        All PulseAudio sources (${d.allSources.length} found)
+      </div>
+      ${d.allSources.length === 0
+        ? `<div style="color:var(--accent);font-size:11px;">No sources found — is PipeWire running?</div>`
+        : d.allSources.map(s => {
+            const isInput  = s.name === d.selectedInput  ? ' ← INPUT METER'  : '';
+            const isOutput = s.name === d.selectedOutput ? ' ← OUTPUT METER' : '';
+            const tag = isInput || isOutput;
+            return `<div style="padding:4px 0;border-bottom:1px solid #1d2025;display:flex;gap:10px;align-items:baseline;">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:${tag?'var(--green)':'var(--text3)'};word-break:break-all;flex:1;">${s.name}</div>
+              ${tag ? `<div style="font-size:10px;font-weight:600;color:var(--green);flex-shrink:0;white-space:nowrap;">${tag}</div>` : ''}
+            </div>`;
+          }).join('')
+      }
+    </div>`;
+
+  panel.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+//  Init
+// ══════════════════════════════════════════════════════════════════════════════
+async function init(){
+  const dev = await loadDeviceInfo();
+  await loadInputChannels(dev.inputMeterAvail);
+  renderOutputMeters(dev.outputMeterAvail);
+  await loadMonitorControls();
+  await loadSinkInputs();
+  renderRouting();
+  updateLatency();
+  runDiagnostics();
+}
+</script>
+</body>
+</html>
